@@ -5,6 +5,7 @@ import {
   cellKey,
   compositeLayers,
   lineAngle,
+  lineToStamp,
   pickLineGlyph,
   pixelToCell,
 } from "@/lib/canvas-utils"
@@ -169,8 +170,11 @@ function DrawSurface({
 export function AsciiPane(): React.ReactElement {
   const canvas = useAppStore((s) => s.canvas)
   const activeLayerId = useAppStore((s) => s.activeLayerId)
+  const layers = useAppStore((s) => s.layers)
   const thickness = useAppStore((s) => s.thickness)
+  const cellSettings = useAppStore((s) => s.cell)
   const paintCells = useAppStore((s) => s.paintCells)
+  const beginStroke = useAppStore((s) => s.beginStroke)
   const undo = useAppStore((s) => s.undo)
 
   const [strokes, setStrokes] = useState<Stroke[]>([])
@@ -242,7 +246,15 @@ export function AsciiPane(): React.ReactElement {
   }, [preview])
 
   const handleConfirm = useCallback(() => {
-    if (!activeLayerId || strokes.length === 0) return
+    const asciiLayers = layers.filter((l) => l.kind === "ascii")
+    const effectiveLayerId =
+      asciiLayers.find((l) => l.id === activeLayerId)?.id ??
+      asciiLayers.find((l) => l.visible)?.id ??
+      null
+
+    if (!effectiveLayerId || strokes.length === 0) return
+
+    beginStroke()
 
     const entries: [string, Cell][] = []
     const seen = new Set<string>()
@@ -251,28 +263,26 @@ export function AsciiPane(): React.ReactElement {
       const start = pixelToCell(stroke.x1, stroke.y1)
       const end = pixelToCell(stroke.x2, stroke.y2)
 
-      const points = bresenham(start.col, start.row, end.col, end.row)
       const angle = lineAngle(start.col, start.row, end.col, end.row)
       const glyph = pickLineGlyph(angle, thickness)
+      const cell: Cell = { char: glyph, fg: cellSettings.textureColor, bg: null }
 
-      for (const p of points) {
-        if (p.col < 0 || p.col >= canvas.cols || p.row < 0 || p.row >= canvas.rows) continue
-        const key = cellKey(p.col, p.row)
+      const points = bresenham(start.col, start.row, end.col, end.row)
+      const stamped = lineToStamp(points, thickness, cell, canvas.cols, canvas.rows)
+
+      for (const [key, stammedCell] of stamped) {
         if (!seen.has(key)) {
           seen.add(key)
-          entries.push([
-            key,
-            { char: glyph, fg: "#ffffff", bg: null },
-          ])
+          entries.push([key, stammedCell])
         }
       }
     }
 
     if (entries.length > 0) {
-      paintCells(activeLayerId, entries)
+      paintCells(effectiveLayerId, entries)
     }
     setStrokes([])
-  }, [activeLayerId, strokes, thickness, canvas.cols, canvas.rows, paintCells])
+  }, [activeLayerId, layers, strokes, thickness, cellSettings, canvas.cols, canvas.rows, paintCells, beginStroke])
 
   const handleClear = useCallback(() => {
     setStrokes([])

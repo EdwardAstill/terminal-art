@@ -1,23 +1,46 @@
 import { useAppStore } from "@/lib/store"
 import type { Layer, LayerKind } from "@/lib/types"
-import { Eye, EyeOff, Plus, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronUp, Eraser, Eye, EyeOff, Lock, LockOpen, Plus, Trash2 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useState, useRef, useEffect, type KeyboardEvent } from "react"
 
+function KindBadge({ kind }: { kind: LayerKind }) {
+  if (kind === "ascii") {
+    return (
+      <span className="inline-flex items-center justify-center rounded px-1 text-[9px] font-mono leading-none bg-muted text-muted-foreground select-none shrink-0">
+        A
+      </span>
+    )
+  }
+  // ansi — colored dot
+  return (
+    <span
+      className="inline-flex items-center justify-center size-3 rounded-full shrink-0 select-none"
+      style={{ background: "hsl(var(--chart-1, 200 70% 50%))", opacity: 0.7 }}
+      aria-label="ansi layer"
+    />
+  )
+}
+
 function LayerRow({
   layer,
+  groupIndex,
   groupSize,
 }: {
   layer: Layer
+  groupIndex: number
   groupSize: number
 }) {
   const activeLayerId = useAppStore((s) => s.activeLayerId)
   const setActiveLayer = useAppStore((s) => s.setActiveLayer)
   const toggleVisibility = useAppStore((s) => s.toggleLayerVisibility)
+  const toggleLock = useAppStore((s) => s.toggleLayerLock)
   const removeLayer = useAppStore((s) => s.removeLayer)
   const renameLayer = useAppStore((s) => s.renameLayer)
+  const clearLayer = useAppStore((s) => s.clearLayer)
+  const reorderLayer = useAppStore((s) => s.reorderLayer)
 
   const isActive = activeLayerId === layer.id
   const [isHovered, setIsHovered] = useState(false)
@@ -64,6 +87,9 @@ function LayerRow({
   }
 
   const canDelete = groupSize > 1
+  // groupIndex 0 = top of list = highest z-order (already reversed before render)
+  const canMoveUp = groupIndex > 0
+  const canMoveDown = groupIndex < groupSize - 1
 
   return (
     <div
@@ -94,6 +120,25 @@ function LayerRow({
         )}
       </button>
 
+      {/* Lock toggle */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleLock(layer.id)
+        }}
+        className={cn(
+          "flex items-center justify-center size-4 shrink-0 hover:text-foreground",
+          layer.locked ? "text-foreground" : "text-muted-foreground",
+        )}
+        aria-label={layer.locked ? "unlock layer" : "lock layer"}
+      >
+        {layer.locked ? (
+          <Lock className="size-3.5" />
+        ) : (
+          <LockOpen className="size-3.5" />
+        )}
+      </button>
+
       {/* Layer name — static or inline edit */}
       {isEditing ? (
         <Input
@@ -120,18 +165,66 @@ function LayerRow({
         </span>
       )}
 
-      {/* Delete button — visible on hover, hidden when only layer in group */}
-      {canDelete && isHovered && !isEditing && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            removeLayer(layer.id)
-          }}
-          className="flex items-center justify-center size-4 shrink-0 text-muted-foreground hover:text-destructive"
-          aria-label="delete layer"
-        >
-          <Trash2 className="size-3" />
-        </button>
+      {/* Kind badge — only when not editing */}
+      {!isEditing && <KindBadge kind={layer.kind} />}
+
+      {/* Hover action buttons */}
+      {isHovered && !isEditing && (
+        <>
+          {/* Reorder up */}
+          {canMoveUp && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                reorderLayer(layer.id, "up")
+              }}
+              className="flex items-center justify-center size-4 shrink-0 text-muted-foreground hover:text-foreground"
+              aria-label="move layer up"
+            >
+              <ChevronUp className="size-3" />
+            </button>
+          )}
+
+          {/* Reorder down */}
+          {canMoveDown && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                reorderLayer(layer.id, "down")
+              }}
+              className="flex items-center justify-center size-4 shrink-0 text-muted-foreground hover:text-foreground"
+              aria-label="move layer down"
+            >
+              <ChevronDown className="size-3" />
+            </button>
+          )}
+
+          {/* Clear layer (erase cells, keep layer) */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              clearLayer(layer.id)
+            }}
+            className="flex items-center justify-center size-4 shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label="clear layer"
+          >
+            <Eraser className="size-3" />
+          </button>
+
+          {/* Delete layer */}
+          {canDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                removeLayer(layer.id)
+              }}
+              className="flex items-center justify-center size-4 shrink-0 text-muted-foreground hover:text-destructive"
+              aria-label="delete layer"
+            >
+              <Trash2 className="size-3" />
+            </button>
+          )}
+        </>
       )}
     </div>
   )
@@ -149,6 +242,8 @@ function LayerGroup({
   const addLayer = useAppStore((s) => s.addLayer)
 
   const group = layers.filter((l) => l.kind === kind)
+  // Reverse so top of list = highest z-order (Photoshop-style)
+  const displayGroup = [...group].reverse()
 
   return (
     <div className="space-y-0.5">
@@ -164,8 +259,13 @@ function LayerGroup({
           <Plus className="size-3" />
         </button>
       </div>
-      {group.map((l) => (
-        <LayerRow key={l.id} layer={l} groupSize={group.length} />
+      {displayGroup.map((l, i) => (
+        <LayerRow
+          key={l.id}
+          layer={l}
+          groupIndex={i}
+          groupSize={displayGroup.length}
+        />
       ))}
     </div>
   )

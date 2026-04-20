@@ -32,14 +32,39 @@ export function compositeLayers(
   cols: number,
   rows: number,
 ): Map<string, Cell> {
-  const result = new Map<string, Cell>()
+  // ANSI layers build the bg colour base (rendered bottom to top within kind)
+  const bgMap = new Map<string, Cell>()
   for (const layer of layers) {
-    if (!layer.visible) continue
+    if (!layer.visible || layer.kind !== "ansi") continue
     for (const [key, cell] of Object.entries(layer.cells)) {
       const [c, r] = key.split(",").map(Number)
-      if (c >= 0 && c < cols && r >= 0 && r < rows) {
-        result.set(key, cell)
-      }
+      if (c >= 0 && c < cols && r >= 0 && r < rows) bgMap.set(key, cell)
+    }
+  }
+
+  // ASCII layers overlay chars on top (rendered bottom to top within kind)
+  const charMap = new Map<string, Cell>()
+  for (const layer of layers) {
+    if (!layer.visible || layer.kind !== "ascii") continue
+    for (const [key, cell] of Object.entries(layer.cells)) {
+      const [c, r] = key.split(",").map(Number)
+      if (c >= 0 && c < cols && r >= 0 && r < rows) charMap.set(key, cell)
+    }
+  }
+
+  // Merge: ASCII char sits on top of ANSI bg
+  const result = new Map<string, Cell>()
+  const allKeys = new Set([...bgMap.keys(), ...charMap.keys()])
+  for (const key of allKeys) {
+    const ansiCell = bgMap.get(key)
+    const asciiCell = charMap.get(key)
+    if (asciiCell && ansiCell) {
+      // ASCII char over ANSI bg
+      result.set(key, { char: asciiCell.char, fg: asciiCell.fg, bg: ansiCell.bg })
+    } else if (asciiCell) {
+      result.set(key, asciiCell)
+    } else if (ansiCell) {
+      result.set(key, ansiCell)
     }
   }
   return result

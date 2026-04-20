@@ -1,6 +1,6 @@
 export type Mode = "ansi" | "ascii"
 
-export type Tool = "brush" | "line" | "rectangle" | "polygon"
+export type Tool = "brush" | "eraser" | "line" | "rectangle" | "polygon"
 
 export type LayerKind = "ansi" | "ascii"
 
@@ -15,6 +15,7 @@ export interface Layer {
   name: string
   kind: LayerKind
   visible: boolean
+  locked: boolean
   cells: Record<string, Cell>
 }
 

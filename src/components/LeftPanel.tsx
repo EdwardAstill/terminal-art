@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/toggle-group"
 import {
   Brush,
+  Eraser,
   Minus,
   Square,
   Pentagon,
@@ -23,8 +24,9 @@ import {
 
 const tools: { id: Tool; label: string; icon: React.ReactNode }[] = [
   { id: "brush", label: "brush", icon: <Brush className="size-3.5" /> },
+  { id: "eraser", label: "eraser", icon: <Eraser className="size-3.5" /> },
   { id: "line", label: "line", icon: <Minus className="size-3.5" /> },
-  { id: "rectangle", label: "rectangle", icon: <Square className="size-3.5" /> },
+  { id: "rectangle", label: "rect", icon: <Square className="size-3.5" /> },
   { id: "polygon", label: "polygon", icon: <Pentagon className="size-3.5" /> },
 ]
 

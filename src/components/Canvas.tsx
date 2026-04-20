@@ -152,6 +152,7 @@ function useToolInteraction() {
   const activeLayerId = useAppStore((s) => s.activeLayerId)
   const canvas = useAppStore((s) => s.canvas)
   const paintCells = useAppStore((s) => s.paintCells)
+  const eraseCell = useAppStore((s) => s.eraseCell)
   const beginStroke = useAppStore((s) => s.beginStroke)
   const setHoverCell = useAppStore((s) => s.setHoverCell)
   const hover = useAppStore((s) => s.hoverCell)
@@ -186,6 +187,9 @@ function useToolInteraction() {
         setIsDragging(true)
         const entries = stampCells(pos.col, pos.row, thickness, activeCell, canvas.cols, canvas.rows)
         if (activeLayerId) paintCells(activeLayerId, entries)
+      } else if (tool === "eraser") {
+        setIsDragging(true)
+        if (activeLayerId) eraseCell(activeLayerId, pos.col, pos.row, thickness)
       } else if (tool === "line") {
         setIsDragging(true)
         dragStart.current = pos
@@ -201,7 +205,7 @@ function useToolInteraction() {
         }
       }
     },
-    [tool, thickness, activeCell, activeLayerId, canvas, paintCells, beginStroke, polyActive],
+    [tool, thickness, activeCell, activeLayerId, canvas, paintCells, eraseCell, beginStroke, polyActive],
   )
 
   const handleMouseMove = useCallback(
@@ -212,6 +216,11 @@ function useToolInteraction() {
       if (tool === "brush" && isDragging) {
         const entries = stampCells(pos.col, pos.row, thickness, activeCell, canvas.cols, canvas.rows)
         if (activeLayerId) paintCells(activeLayerId, entries)
+        return
+      }
+
+      if (tool === "eraser" && isDragging) {
+        if (activeLayerId) eraseCell(activeLayerId, pos.col, pos.row, thickness)
         return
       }
 
@@ -253,12 +262,12 @@ function useToolInteraction() {
         setPreview(new Map(all))
       }
     },
-    [tool, isDragging, thickness, activeCell, activeLayerId, canvas, paintCells, setHoverCell, polyActive],
+    [tool, isDragging, thickness, activeCell, activeLayerId, canvas, paintCells, eraseCell, setHoverCell, polyActive],
   )
 
   const handleMouseUp = useCallback(
     (_e: React.MouseEvent) => {
-      if (tool === "brush") {
+      if (tool === "brush" || tool === "eraser") {
         setIsDragging(false)
         return
       }
@@ -273,7 +282,7 @@ function useToolInteraction() {
 
   const handleMouseLeave = useCallback(() => {
     setHoverCell(null)
-    if (tool === "brush") setIsDragging(false)
+    if (tool === "brush" || tool === "eraser") setIsDragging(false)
   }, [tool, setHoverCell])
 
   const handleClick = useCallback(() => {
@@ -348,6 +357,8 @@ function StatusBar({ polyActive }: { polyActive: boolean }) {
       ? polyActive
         ? "click to add point · double-click to close · Esc to cancel"
         : "click to start polygon"
+      : tool === "eraser"
+      ? "click or drag to erase"
       : tool === "line" || tool === "rectangle"
       ? "click and drag"
       : "click or drag to paint"

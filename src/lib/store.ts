@@ -9,6 +9,7 @@ import type {
   LayerKind,
   Mode,
   Tool,
+  Workspace,
 } from "./types"
 
 type LayerCellsSnapshot = Record<string, Record<string, Cell>>
@@ -45,6 +46,7 @@ const L = (id: string, name: string, kind: LayerKind, visible: boolean): Layer =
 
 export interface AppState {
   mode: Mode
+  workspace: Workspace
   tool: Tool
   imageMode: boolean
   thickness: number
@@ -58,6 +60,7 @@ export interface AppState {
   redoStack: LayerCellsSnapshot[]
 
   setMode: (mode: Mode) => void
+  setWorkspace: (workspace: Workspace) => void
   setTool: (tool: Tool) => void
   toggleImageMode: () => void
   setThickness: (thickness: number) => void
@@ -100,6 +103,7 @@ const defaultCell: CellSettings = {
 
 export const useAppStore = create<AppState>()((set, get) => ({
   mode: "ansi",
+  workspace: "canvas",
   tool: "brush",
   imageMode: false,
   thickness: 1,
@@ -120,6 +124,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       mode,
       activeLayerId: bestLayerForMode(s.layers, mode) ?? s.activeLayerId,
     })),
+
+  setWorkspace: (workspace) => set({ workspace }),
 
   setTool: (tool) => set({ tool }),
   toggleImageMode: () => set((s) => ({ imageMode: !s.imageMode })),

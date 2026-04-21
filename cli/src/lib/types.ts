@@ -1,7 +1,4 @@
 export type Mode = "ansi" | "ascii"
-export type Workspace = "canvas" | "glyph-lab"
-
-export type Tool = "brush" | "eraser" | "line" | "rectangle" | "polygon"
 
 export type LayerKind = "ansi" | "ascii"
 
@@ -18,16 +15,6 @@ export interface Layer {
   visible: boolean
   locked: boolean
   cells: Record<string, Cell>
-}
-
-export type CellFillMode = "texture" | "symbol"
-
-export interface CellSettings {
-  mainColor: string
-  textureColor: string
-  fillMode: CellFillMode
-  texture: string
-  symbol: string
 }
 
 export interface ImageAsset {

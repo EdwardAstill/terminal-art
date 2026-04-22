@@ -139,22 +139,45 @@ const legacyGlyphTemplates: GlyphTemplate[] = Object.entries(renderedLegacyGlyph
   mask: maskFromRows(rows),
 }))
 
-const autoLegacyGlyphs = new Set([
+export const alignedLegacyGlyphRows: Partial<Record<keyof typeof renderedLegacyGlyphRows, readonly string[]>> = {
+  "🬿": ["1000", "1100", "1100", "1100", "1110", "1110", "1110", "1111"],
+  "🭊": ["0001", "0011", "0011", "0011", "0111", "0111", "0111", "1111"],
+  "🭚": ["1111", "1110", "1110", "1110", "1100", "1100", "1100", "1000"],
+  "🭥": ["1111", "0111", "0111", "0111", "0011", "0011", "0011", "0001"],
+  "🭬": ["0000", "0000", "1000", "1000", "1100", "1100", "1110", "1110"],
+  "🭭": ["1111", "1111", "1110", "1110", "1100", "1100", "0000", "0000"],
+  "🭮": ["0000", "0000", "0001", "0001", "0011", "0011", "0111", "0111"],
+  "🭯": ["0000", "0000", "0111", "0111", "0011", "0011", "1111", "1111"],
+}
+
+const alignedLegacyGlyphTemplates: GlyphTemplate[] = Object.entries(alignedLegacyGlyphRows).map(([char, rows]) => ({
+  char,
+  mask: maskFromRows(rows),
+}))
+
+const autoLegacyGlyphs = new Set<string>([
   "🬿",
   "🭊",
   "🭚",
   "🭥",
-  "🭬",
-  "🭭",
-  "🭮",
-  "🭯",
+  // "🭬",
+  // "🭭",
+  // "🭮",
+  // "🭯",
 ])
 
-const autoLegacyGlyphTemplates = legacyGlyphTemplates.filter((glyph) => autoLegacyGlyphs.has(glyph.char))
+const autoLegacyGlyphTemplates = alignedLegacyGlyphTemplates.filter((glyph) => autoLegacyGlyphs.has(glyph.char))
 
 export const glyphTemplates: GlyphTemplate[] = [
   ...blockGlyphTemplates,
   ...autoLegacyGlyphTemplates,
+]
+
+export const lineGlyphTemplates: GlyphTemplate[] = [
+  { char: "─", mask: maskFromRows(["0000", "0000", "0000", "1111", "1111", "0000", "0000", "0000"]) },
+  { char: "│", mask: maskFromRows(["0110", "0110", "0110", "0110", "0110", "0110", "0110", "0110"]) },
+  { char: "╲", mask: maskFromRows(["1000", "1000", "0100", "0100", "0010", "0010", "0001", "0001"]) },
+  { char: "╱", mask: maskFromRows(["0001", "0001", "0010", "0010", "0100", "0100", "1000", "1000"]) },
 ]
 
 function chunk<T>(items: T[], size: number): T[][] {

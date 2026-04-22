@@ -1,0 +1,5 @@
+init --cols 32 --rows 14 --out fitted-lines.termart
+fitted-lines.termart line 2 2 29 11
+fitted-lines.termart line 2 11 29 2
+fitted-lines.termart line 2 7 29 7
+fitted-lines.termart line 16 1 16 12

@@ -26,6 +26,7 @@ Common commands:
 - `term-art info <file.termart>`
 - `term-art resize <file.termart> --cols N --rows N [--out file.termart] [--print]`
 - `term-art demo [ansi|ascii] [--out file.termart] [--print]`
+- `term-art gallery`
 - `term-art run <script.termartcli>`
 - `term-art export ansi|ascii <file.termart> [--out file.txt] [--print]`
 
@@ -121,6 +122,14 @@ term-art demo ansi --print
 ```
 
 When used on draw commands, `--print` prints the updated `.termart` JSON.
+
+## Unicode Gallery
+
+```bash
+term-art gallery
+```
+
+Prints the built-in Unicode art gallery, including circles, triangles, fitted lines, a spline, and quadrant-block studies.
 
 ## Script Mode
 

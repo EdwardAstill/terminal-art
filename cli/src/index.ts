@@ -2,13 +2,13 @@
 import { readFile, writeFile } from "node:fs/promises"
 import { dirname, isAbsolute, resolve } from "node:path"
 import { bresenham, cellKey, catmullRom, lineAngle, pickCoverageGlyph, pickLineGlyph, rasterCircle, rasterEllipse, rasterLine, rasterPolyline } from "./lib/canvas.js"
-import { glyphBankRows, glyphTemplates, sampleCoverageMask } from "./lib/glyph-bank.js"
+import { glyphBankRows, glyphTemplates, lineGlyphTemplates, sampleCoverageMask, type GlyphTemplate } from "./lib/glyph-bank.js"
 import { createBlankState, deserialize, serialize, type FileState } from "./lib/file.js"
 import { exportAnsi, exportAscii, cellFromParts } from "./lib/render.js"
-import type { CanvasSize, Cell, Layer, LayerKind } from "./lib/types.js"
+import type { CanvasSize, Cell, GridPos, Layer, LayerKind } from "./lib/types.js"
 
 type ArgMap = Map<string, string | boolean>
-type FitScoreMode = "simple" | "balanced" | "overlap" | "edge"
+type FitScoreMode = "simple" | "balanced" | "overlap" | "edge" | "outline"
 
 interface ParsedCommand {
   args: string[]
@@ -28,6 +28,7 @@ Usage:
   term-art resize <file.termart> --cols N --rows N [--out file.termart]
   term-art demo [ansi|ascii] [--out file.termart]
   term-art run <script.termartcli>
+  term-art gallery
   term-art glyphs
   term-art <file.termart> <op> ...           default Unicode mode
   term-art ansi <file.termart> put x y --char X --fg #hex --bg #hex [--layer id]
@@ -139,6 +140,10 @@ function flagNumber(flags: ArgMap, name: string, fallback: number): number {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) exitWith(`Invalid value for --${name}: ${value}`)
   return parsed
+}
+
+function hasFitScoreOverride(flags: ArgMap): boolean {
+  return flags.has("fit-score")
 }
 
 function readFitScoreMode(flags: ArgMap): FitScoreMode {
@@ -464,6 +469,99 @@ function createAsciiDemoState(): FileState {
   return state
 }
 
+function createGalleryStates(): { name: string; state: FileState }[] {
+  const entries: { name: string; state: FileState }[] = []
+
+  {
+    const state = createBlankState({ cols: 72, rows: 18 })
+    const layer = selectLayer(state.layers, "ascii", "ascii-1")
+    const cell = cellFromParts(" ", "#000000", null)
+
+    drawSubcellPolygon(layer, state.canvas, [
+      { col: 0, row: 0 },
+      { col: 72, row: 0 },
+      { col: 72, row: 2 },
+      { col: 55, row: 2 },
+      { col: 54.2, row: 1 },
+      { col: 0, row: 1 },
+    ], cell)
+
+    drawSubcellPolygon(layer, state.canvas, [
+      { col: 0, row: 17 },
+      { col: 24, row: 17 },
+      { col: 25, row: 16 },
+      { col: 48, row: 16 },
+      { col: 49, row: 17 },
+      { col: 72, row: 17 },
+      { col: 72, row: 18 },
+      { col: 0, row: 18 },
+    ], cell)
+
+    entries.push({ name: "coordinate filled chrome", state })
+  }
+
+  {
+    const state = createBlankState({ cols: 20, rows: 12 })
+    const layer = selectLayer(state.layers, "ascii", "ascii-1")
+    drawSubcellCircle(layer, state.canvas, 10, 6, 4.8, 1.3, cellFromParts(" ", "#000000", null), 1, true, "", "simple")
+    entries.push({ name: "filled circle", state })
+  }
+
+  {
+    const state = createBlankState({ cols: 20, rows: 12 })
+    const layer = selectLayer(state.layers, "ascii", "ascii-1")
+    drawSubcellCircle(layer, state.canvas, 10, 6, 4.8, 1.3, cellFromParts(" ", "#000000", null), 1, false, "", "outline")
+    entries.push({ name: "outline circle", state })
+  }
+
+  {
+    const state = createBlankState({ cols: 24, rows: 12 })
+    const layer = selectLayer(state.layers, "ascii", "ascii-1")
+    drawSubcellTriangle(layer, state.canvas, 3.5, 10.5, 12, 1.5, 20.5, 10.5, cellFromParts(" ", "#000000", null))
+    entries.push({ name: "wide triangle", state })
+  }
+
+  {
+    const state = createBlankState({ cols: 32, rows: 14 })
+    const layer = selectLayer(state.layers, "ascii", "ascii-1")
+    const cell = cellFromParts(" ", "#000000", null)
+    drawSubcellLine(layer, state.canvas, 2.5, 2.5, 29.5, 11.5, 1, cell)
+    drawSubcellLine(layer, state.canvas, 2.5, 11.5, 29.5, 2.5, 1, cell)
+    drawSubcellLine(layer, state.canvas, 2.5, 7.5, 29.5, 7.5, 1, cell)
+    drawSubcellLine(layer, state.canvas, 16.5, 1.5, 16.5, 12.5, 1, cell)
+    entries.push({ name: "fitted lines", state })
+  }
+
+  {
+    const state = createBlankState({ cols: 32, rows: 14 })
+    const layer = selectLayer(state.layers, "ascii", "ascii-1")
+    const points = catmullRom([
+      { col: 2.5, row: 10.5 },
+      { col: 7.5, row: 2.5 },
+      { col: 13.5, row: 11.5 },
+      { col: 20.5, row: 3.5 },
+      { col: 29.5, row: 10.5 },
+    ], 14)
+    drawSubcellPolyline(layer, state.canvas, points, 1, cellFromParts(" ", "#000000", null))
+    entries.push({ name: "fitted spline", state })
+  }
+
+  {
+    const state = createBlankState({ cols: 18, rows: 10 })
+    const layer = selectLayer(state.layers, "ascii", "ascii-1")
+    const cell = cellFromParts(" ", "#000000", null)
+    writeText(layer, state.canvas, 7, 1, "▟▙", cell)
+    writeText(layer, state.canvas, 5, 2, "▟▘  ▝▙", cell)
+    writeText(layer, state.canvas, 4, 3, "▟▘    ▝▙", cell)
+    writeText(layer, state.canvas, 4, 4, "▜▖    ▗▛", cell)
+    writeText(layer, state.canvas, 5, 5, "▜▖  ▗▛", cell)
+    writeText(layer, state.canvas, 6, 6, "▜▛", cell)
+    entries.push({ name: "quadrant diamond", state })
+  }
+
+  return entries
+}
+
 function drawAsciiRectAuto(
   layer: Layer,
   canvas: CanvasSize,
@@ -525,6 +623,42 @@ function pointInTriangle(
   const hasNeg = d1 < 0 || d2 < 0 || d3 < 0
   const hasPos = d1 > 0 || d2 > 0 || d3 > 0
   return !(hasNeg && hasPos)
+}
+
+function pointInPolygon(px: number, py: number, points: GridPos[]): boolean {
+  let inside = false
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const a = points[i]
+    const b = points[j]
+    const crosses = (a.row > py) !== (b.row > py)
+    if (!crosses) continue
+    const x = ((b.col - a.col) * (py - a.row)) / (b.row - a.row) + a.col
+    if (px < x) inside = !inside
+  }
+  return inside
+}
+
+function drawSubcellPolygon(
+  layer: Layer,
+  canvas: CanvasSize,
+  points: GridPos[],
+  cell: Cell,
+  charOverride?: string,
+  scoreMode: FitScoreMode = "simple",
+): void {
+  if (points.length < 3) return
+  drawCoverageShape(
+    layer,
+    canvas,
+    Math.min(...points.map((point) => point.col)),
+    Math.min(...points.map((point) => point.row)),
+    Math.max(...points.map((point) => point.col)),
+    Math.max(...points.map((point) => point.row)),
+    cell,
+    (x, y) => pointInPolygon(x, y, points),
+    charOverride,
+    scoreMode,
+  )
 }
 
 function drawSubcellFill(
@@ -634,9 +768,16 @@ function drawSubcellShape(
 
 function scoreGlyph(target: boolean, covered: boolean, mode: FitScoreMode): number {
   if (mode === "simple") {
-    if (target && covered) return 2
+    if (target && covered) return 3
     if (!target && covered) return -1
-    if (target && !covered) return -3
+    if (target && !covered) return -4
+    return 0
+  }
+
+  if (mode === "outline") {
+    if (target && covered) return 3
+    if (!target && covered) return -3
+    if (target && !covered) return -4
     return 0
   }
 
@@ -660,11 +801,15 @@ function scoreGlyph(target: boolean, covered: boolean, mode: FitScoreMode): numb
   return 2
 }
 
-function bestGlyphForCoverage(matches: (x: number, y: number) => boolean, mode: FitScoreMode): string {
+function bestGlyphForCoverage(
+  matches: (x: number, y: number) => boolean,
+  mode: FitScoreMode,
+  candidates: GlyphTemplate[] = glyphTemplates,
+): string {
   let bestChar = " "
   let bestScore = Number.NEGATIVE_INFINITY
   const targetMask = sampleCoverageMask(matches)
-  for (const glyph of glyphTemplates) {
+  for (const glyph of candidates) {
     let score = 0
     let bit = 1
     for (let i = 0; i < 32; i++) {
@@ -693,6 +838,7 @@ function drawCoverageShape(
   matches: (x: number, y: number) => boolean,
   charOverride?: string,
   scoreMode: FitScoreMode = "simple",
+  candidates: GlyphTemplate[] = glyphTemplates,
 ): void {
   const startCol = Math.floor(minX)
   const endCol = Math.ceil(maxX) - 1
@@ -704,11 +850,85 @@ function drawCoverageShape(
       if (!ensureInCanvas(canvas, col, row)) continue
       const cellMatches = (x: number, y: number) => matches(col + x, row + y)
       if (sampleCoverageMask(cellMatches) === 0) continue
-      const char = charOverride && charOverride !== "auto" ? charOverride : bestGlyphForCoverage(cellMatches, scoreMode)
+      const char = charOverride && charOverride !== "auto" ? charOverride : bestGlyphForCoverage(cellMatches, scoreMode, candidates)
       if (char === " ") continue
       setCell(layer, col, row, { ...cell, char })
     }
   }
+}
+
+function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax
+  const dy = by - ay
+  const lengthSq = dx * dx + dy * dy
+  if (lengthSq === 0) return Math.hypot(px - ax, py - ay)
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq))
+  const x = ax + t * dx
+  const y = ay + t * dy
+  return Math.hypot(px - x, py - y)
+}
+
+function drawSubcellLine(
+  layer: Layer,
+  canvas: CanvasSize,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  thickness: number,
+  cell: Cell,
+  charOverride?: string,
+  scoreMode: FitScoreMode = "outline",
+): void {
+  const radius = Math.max(0.08, thickness * 0.12)
+  drawCoverageShape(
+    layer,
+    canvas,
+    Math.min(x1, x2) - radius,
+    Math.min(y1, y2) - radius,
+    Math.max(x1, x2) + radius,
+    Math.max(y1, y2) + radius,
+    cell,
+    (x, y) => distanceToSegment(x, y, x1, y1, x2, y2) <= radius,
+    charOverride,
+    scoreMode,
+    [...lineGlyphTemplates, ...glyphTemplates],
+  )
+}
+
+function drawSubcellPolyline(
+  layer: Layer,
+  canvas: CanvasSize,
+  points: GridPos[],
+  thickness: number,
+  cell: Cell,
+  charOverride?: string,
+  scoreMode: FitScoreMode = "outline",
+): void {
+  if (points.length < 2) return
+  const radius = Math.max(0.08, thickness * 0.12)
+  const xs = points.map((point) => point.col)
+  const ys = points.map((point) => point.row)
+  drawCoverageShape(
+    layer,
+    canvas,
+    Math.min(...xs) - radius,
+    Math.min(...ys) - radius,
+    Math.max(...xs) + radius,
+    Math.max(...ys) + radius,
+    cell,
+    (x, y) => {
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1]
+        const b = points[i]
+        if (distanceToSegment(x, y, a.col, a.row, b.col, b.row) <= radius) return true
+      }
+      return false
+    },
+    charOverride,
+    scoreMode,
+    [...lineGlyphTemplates, ...glyphTemplates],
+  )
 }
 
 function drawTriangleStroke(
@@ -856,6 +1076,17 @@ async function execute(argv: string[], context: ExecContext): Promise<void> {
     return
   }
 
+  if (command === "gallery") {
+    const gallery = createGalleryStates()
+    for (let i = 0; i < gallery.length; i++) {
+      const entry = gallery[i]
+      if (i > 0) process.stdout.write("\n")
+      process.stdout.write(`${entry.name}\n`)
+      process.stdout.write(exportAscii(entry.state.layers, entry.state.canvas))
+    }
+    return
+  }
+
   if (command === "run") {
     const scriptArg = args[0]
     if (!scriptArg) exitWith("Missing script file path")
@@ -966,7 +1197,7 @@ async function execute(argv: string[], context: ExecContext): Promise<void> {
     return
   }
 
-  const topLevel = new Set(["init", "info", "resize", "demo", "run", "export", "ansi", "ascii", "unicode", "glyphs"])
+  const topLevel = new Set(["init", "info", "resize", "demo", "run", "gallery", "export", "ansi", "ascii", "unicode", "glyphs"])
   if (!topLevel.has(command)) {
     rest.unshift(command)
     await execute(["unicode", ...rest], context)
@@ -1031,8 +1262,16 @@ async function execute(argv: string[], context: ExecContext): Promise<void> {
         const cell = buildAnsiCell(flags)
         drawLine(layer, state.canvas, x1, y1, x2, y2, thickness, cell)
       } else {
-        const cell = buildLineCellForAscii(x1, y1, x2, y2, thickness, flags)
-        drawLine(layer, state.canvas, x1, y1, x2, y2, thickness, cell)
+        const charFlag = flagString(flags, "char", "")
+        if (charFlag && charFlag !== "auto") {
+          const cell = buildLineCellForAscii(x1, y1, x2, y2, thickness, flags)
+          drawLine(layer, state.canvas, x1, y1, x2, y2, thickness, cell)
+        } else {
+          const fg = flagString(flags, "fg", "#000000")
+          const bgValue = flags.get("bg")
+          const bg = typeof bgValue === "string" ? bgValue : null
+          drawSubcellLine(layer, state.canvas, x1 + 0.5, y1 + 0.5, x2 + 0.5, y2 + 0.5, thickness, cellFromParts(" ", fg, bg), charFlag, hasFitScoreOverride(flags) ? fitScore : "outline")
+        }
       }
     } else if (op === "rect") {
       if (args.length < 6) exitWith(`${command} rect needs x1 y1 x2 y2`)
@@ -1109,7 +1348,7 @@ async function execute(argv: string[], context: ExecContext): Promise<void> {
       if (mode === "ansi" && bg === null) exitWith("ANSI circle requires --bg")
       const charFlag = flagString(flags, "char", "")
       const cell = cellFromParts(" ", fg || "#000000", bg)
-      drawSubcellCircle(layer, state.canvas, cx, cy, r, aspectY, cell, thickness, fill, charFlag, fitScore)
+      drawSubcellCircle(layer, state.canvas, cx, cy, r, aspectY, cell, thickness, fill, charFlag, !fill && !hasFitScoreOverride(flags) ? "outline" : fitScore)
     } else if (op === "ellipse") {
       if (args.length < 6) exitWith(`${command} ellipse needs cx cy rx ry`)
       const cx = readCoordFloat(args[2], "cx")
@@ -1124,7 +1363,7 @@ async function execute(argv: string[], context: ExecContext): Promise<void> {
       if (mode === "ansi" && bg === null) exitWith("ANSI ellipse requires --bg")
       const charFlag = flagString(flags, "char", "")
       const cell = cellFromParts(" ", fg || "#000000", bg)
-      drawSubcellEllipse(layer, state.canvas, cx, cy, rx, ry, aspectY, cell, thickness, fill, charFlag, fitScore)
+      drawSubcellEllipse(layer, state.canvas, cx, cy, rx, ry, aspectY, cell, thickness, fill, charFlag, !fill && !hasFitScoreOverride(flags) ? "outline" : fitScore)
     } else if (op === "spline") {
       if (args.length < 8 || (args.length - 2) % 2 !== 0) exitWith(`${command} spline needs at least 3 points`)
       const points: { col: number; row: number }[] = []
@@ -1140,25 +1379,26 @@ async function execute(argv: string[], context: ExecContext): Promise<void> {
       const charFlag = flagString(flags, "char", "")
       if (mode === "ansi" && !fg) exitWith("ANSI spline requires --fg")
       if (mode === "ansi" && bg === null) exitWith("ANSI spline requires --bg")
-      const sampled = catmullRom(points, 14).map((point) => ({
-        col: Math.round(point.col),
-        row: Math.round(point.row),
-      }))
       if (charFlag && charFlag !== "auto") {
+        const sampled = catmullRom(points, 14).map((point) => ({
+          col: Math.round(point.col),
+          row: Math.round(point.row),
+        }))
         const cell = cellFromParts(charFlag, fg || "#000000", bg)
         for (const [key, stamp] of rasterPolyline(sampled, thickness, cell, state.canvas.cols, state.canvas.rows)) {
           const [col, row] = key.split(",").map(Number)
           setCell(layer, col, row, stamp)
         }
       } else {
-        for (let i = 1; i < sampled.length; i++) {
-          const a = sampled[i - 1]
-          const b = sampled[i]
-          const angle = lineAngle(a.col, a.row, b.col, b.row)
-          const glyph = pickLineGlyph(angle, thickness)
-          const stroke = cellFromParts(glyph, fg || "#000000", bg)
-          drawLine(layer, state.canvas, a.col, a.row, b.col, b.row, thickness, stroke)
-        }
+        drawSubcellPolyline(
+          layer,
+          state.canvas,
+          catmullRom(points, 14).map((point) => ({ col: point.col + 0.5, row: point.row + 0.5 })),
+          thickness,
+          cellFromParts(" ", fg || "#000000", bg),
+          charFlag,
+          hasFitScoreOverride(flags) ? fitScore : "outline",
+        )
       }
     } else {
       exitWith(`Unknown ${command} operation: ${op}`)

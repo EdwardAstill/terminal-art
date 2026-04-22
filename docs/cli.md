@@ -70,6 +70,14 @@ term-art demo ascii [--out file.termart] [--print]
 
 Prints a built-in demo scene or saves it as a `.termart` file.
 
+## Gallery
+
+```bash
+term-art gallery
+```
+
+Prints the built-in Unicode art gallery.
+
 ## Run
 
 ```bash

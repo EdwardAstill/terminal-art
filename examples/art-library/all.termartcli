@@ -1,0 +1,7 @@
+# Generate the starter art library.
+run filled-circle.termartcli
+run outline-circle.termartcli
+run wide-triangle.termartcli
+run fitted-lines.termartcli
+run fitted-spline.termartcli
+run quadrant-diamond.termartcli

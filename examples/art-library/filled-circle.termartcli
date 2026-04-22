@@ -1,0 +1,2 @@
+init --cols 20 --rows 12 --out filled-circle.termart
+filled-circle.termart circle 10 6 4.8 --fill

@@ -1,0 +1,7 @@
+init --cols 18 --rows 10 --out quadrant-diamond.termart
+quadrant-diamond.termart text 7 1 "▟▙"
+quadrant-diamond.termart text 5 2 "▟▘  ▝▙"
+quadrant-diamond.termart text 4 3 "▟▘    ▝▙"
+quadrant-diamond.termart text 4 4 "▜▖    ▗▛"
+quadrant-diamond.termart text 5 5 "▜▖  ▗▛"
+quadrant-diamond.termart text 6 6 "▜▛"

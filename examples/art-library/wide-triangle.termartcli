@@ -1,0 +1,2 @@
+init --cols 24 --rows 12 --out wide-triangle.termart
+wide-triangle.termart triangle 3.5 10.5 12 1.5 20.5 10.5

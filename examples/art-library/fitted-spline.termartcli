@@ -1,0 +1,2 @@
+init --cols 32 --rows 14 --out fitted-spline.termart
+fitted-spline.termart spline 2 10 7 2 13 11 20 3 29 10

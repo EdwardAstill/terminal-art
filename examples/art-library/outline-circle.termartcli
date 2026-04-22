@@ -1,0 +1,2 @@
+init --cols 20 --rows 12 --out outline-circle.termart
+outline-circle.termart circle 10 6 4.8
